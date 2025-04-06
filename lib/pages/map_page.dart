@@ -38,8 +38,8 @@ final Completer<GoogleMapController> _mapController =
 
 
 
-static const LatLng _pGooglePlex = LatLng(37.4223, -122.0848);
-static const LatLng _pApplePark = LatLng(37.3346, -122.0090);
+static const LatLng _pTarget = LatLng(32.87931095309238, -117.23734192736362);
+static const LatLng _pVons = LatLng(32.86606502019182, -117.23193037637492);
 LatLng? _currentP;
 
 
@@ -71,9 +71,9 @@ void initState() {
       body: GoogleMap(
         onMapCreated: (GoogleMapController controller) =>
             _mapController.complete(controller),
-        // Use _currentP if available; otherwise default to _pGooglePlex.
+        // Use _currentP if available; otherwise default to _pTarget.
         initialCameraPosition: CameraPosition(
-          target: _currentP ?? _pGooglePlex,
+          target: _currentP ?? _pTarget,
           zoom: 13,
         ),
         markers: {
@@ -87,12 +87,12 @@ void initState() {
           Marker(
             markerId: MarkerId("_sourceLocation"),
             icon: BitmapDescriptor.defaultMarker,
-            position: _pGooglePlex,
+            position: _pTarget,
           ),
           Marker(
             markerId: MarkerId("_destinationLocation"),
             icon: BitmapDescriptor.defaultMarker,
-            position: _pApplePark,
+            position: _pVons,
           ),
         },
         polylines: Set<Polyline>.of(polylines.values),
@@ -179,8 +179,8 @@ Future<List<LatLng>> getPolylinePoints() async {
   PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
     googleApiKey: GOOGLE_MAPS_API_KEY,
     request: PolylineRequest(
-      origin: PointLatLng(_pGooglePlex.latitude, _pGooglePlex.longitude),
-      destination: PointLatLng(_pApplePark.latitude, _pApplePark.longitude),
+      origin: PointLatLng(_pTarget.latitude, _pTarget.longitude),
+      destination: PointLatLng(_pVons.latitude, _pVons.longitude),
       mode: TravelMode.driving,
     ),
   );
