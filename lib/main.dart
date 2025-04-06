@@ -14,10 +14,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // You can try changing the seedColor for a different theme.
+        // Change the seedColor for a different theme.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      // Set the home to the LoadingScreen instead of directly to MapPage
+      // Start with the LoadingScreen
       home: const LoadingScreen(),
       debugShowCheckedModeBanner: false,
     );
@@ -39,7 +39,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
   }
 
   Future<void> _simulateLoading() async {
-    // Simulate a delay for loading resources (e.g., data fetch, initialization, etc.)
+    // Simulate a delay for loading resources (data fetch, asset initialization, etc.)
     await Future.delayed(const Duration(seconds: 3));
     // Navigate to MapPage after the delay
     Navigator.of(context).pushReplacement(
@@ -50,9 +50,9 @@ class _LoadingScreenState extends State<LoadingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Display the splash image as the loading screen
+      // Display a splash image as the loading screen
       body: Center(
-        child: Image.asset('./assets/splash.jpg'),
+        child: Image.asset('assets/splash.jpg'),
       ),
     );
   }
