@@ -1,33 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:hi/pages/map_page.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/services.dart';
+import 'package:mebt/pages/map_page.dart';
 
-void main() async {
-  await dotenv.load(fileName: ".env");
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // Change the seedColor for a different theme.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      // Start with the LoadingScreen
-      home: const LoadingScreen(),
+      title: 'EBT Map Locator',
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primarySwatch: Colors.green,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: const LoadingScreen(),  // Start with the loading screen
     );
   }
 }
 
 class LoadingScreen extends StatefulWidget {
-  const LoadingScreen({super.key});
+  const LoadingScreen({Key? key}) : super(key: key);
 
   @override
   State<LoadingScreen> createState() => _LoadingScreenState();
@@ -37,26 +39,54 @@ class _LoadingScreenState extends State<LoadingScreen> {
   @override
   void initState() {
     super.initState();
-    _simulateLoading();
+    _navigateToMap();
   }
 
-  Future<void> _simulateLoading() async {
-    // Simulate a delay for loading resources (data fetch, asset initialization, etc.)
+  Future<void> _navigateToMap() async {
+    // Show splash screen for 3 seconds
     await Future.delayed(const Duration(seconds: 3));
-    // Navigate to MapPage after the delay
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const MapPage()),
-    );
+    
+    // Navigate to the map page and remove the splash screen from the stack
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const MapPage()),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Set the background color here
+      backgroundColor: Colors.white,
       body: Center(
-        child: Image.asset(
-          'assets/logo.jpg',
-          width: MediaQuery.of(context).size.width / 2,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Logo image
+            Image.asset(
+              'assets/logo.jpg',
+              width: MediaQuery.of(context).size.width * 0.7,
+            ),
+            
+            const SizedBox(height: 40),
+            
+            // Loading indicator
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Loading text
+            const Text(
+              'Loading EBT Locations...',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+          ],
         ),
       ),
     );
