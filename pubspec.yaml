@@ -33,6 +33,7 @@ dependencies:
     
   csv: ^5.0.0
   path_provider: ^2.1.1
+  google_maps_flutter: ^2.5.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -42,7 +43,7 @@ dependencies:
   # Use with the GoogleMap class for displaying maps.
   # For more information, see https://pub.dev/packages/google_maps_flutter
   geolocator: ^13.0.4
-  google_maps_flutter: ^2.4.0
+
 
 
 dev_dependencies:
