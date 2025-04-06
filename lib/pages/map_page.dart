@@ -18,6 +18,15 @@ class _MapPageState extends State<MapPage> {
     zoom: 4,
   );
 
+  double _mapBearing = 0.0;
+
+  void _onCameraMove(CameraPosition position) {
+    setState(() {
+      _mapBearing = position.bearing;
+    });
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -32,6 +41,8 @@ class _MapPageState extends State<MapPage> {
             markers: markers,
             zoomGesturesEnabled: true,
             zoomControlsEnabled: true,
+            compassEnabled: false,
+            myLocationButtonEnabled: true,
           ),
           // Sticky, rounded search bar at the top
           Positioned(
@@ -60,6 +71,33 @@ class _MapPageState extends State<MapPage> {
                 onChanged: (value) {
                   // Implement your search filtering logic here
                 },
+              ),
+            ),
+          ),
+        // Custom Compass placed above the default location button
+          Positioned(
+            bottom: 80, // Adjust based on where the location button is
+            right: 16,
+            child: Transform.rotate(
+              angle: (_mapBearing * (3.14159265 / 180) * -1),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white70,
+                  shape: BoxShape.circle,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.navigation,
+                  size: 24,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
