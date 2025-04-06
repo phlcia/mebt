@@ -14,25 +14,46 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
+        // You can try changing the seedColor for a different theme.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: MapPage(),
+      // Set the home to the LoadingScreen instead of directly to MapPage
+      home: const LoadingScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
 
+class LoadingScreen extends StatefulWidget {
+  const LoadingScreen({super.key});
+
+  @override
+  State<LoadingScreen> createState() => _LoadingScreenState();
+}
+
+class _LoadingScreenState extends State<LoadingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _simulateLoading();
+  }
+
+  Future<void> _simulateLoading() async {
+    // Simulate a delay for loading resources (e.g., data fetch, initialization, etc.)
+    await Future.delayed(const Duration(seconds: 3));
+    // Navigate to MapPage after the delay
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const MapPage()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // Display the splash image as the loading screen
+      body: Center(
+        child: Image.asset('./assets/splash.jpg'),
+      ),
+    );
+  }
+}
