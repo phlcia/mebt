@@ -7,7 +7,7 @@ import 'package:hi/consts.dart';
 import 'package:location/location.dart';
 
 class MapPage extends StatefulWidget {
-  const MapPage({super.key});
+  const MapPage({Key? key}) : super(key: key);
 
   @override
   State<MapPage> createState() => _MapPageState();
@@ -40,110 +40,79 @@ class _MapPageState extends State<MapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _currentP == null 
-          ? const Center(
-              child: Text("Loading..."),
-            )
-          : GoogleMap(
-              onMapCreated: ((GoogleMapController controller) => 
-                  _mapController.complete(controller)),
-              initialCameraPosition: CameraPosition(
-                target: _pGooglePlex, 
-                zoom: 13,
+      body: Stack(
+        children: [
+          // Google Map widget
+          GoogleMap(
+            initialCameraPosition: _initialPosition,
+            onMapCreated: (controller) {
+              _mapController = controller;
+            },
+            markers: markers,
+            zoomGesturesEnabled: true,
+            zoomControlsEnabled: true,
+            compassEnabled: false,
+            myLocationButtonEnabled: true,
+          ),
+          // Sticky, rounded search bar at the top
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 14, // Adjust for safe area on iOS if needed
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  )
+                ],
               ),
-              markers: {
-                Marker(
-                  markerId: MarkerId("_currentLocation"),
-                  icon: BitmapDescriptor.defaultMarker, 
-                  position: _currentP!,
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: 'Search for a store',
+                  border: InputBorder.none,
+                  icon: Icon(Icons.search),
                 ),
-                Marker(
-                  markerId: MarkerId("_sourceLocation"),
-                  icon: BitmapDescriptor.defaultMarker, 
-                  position: _pGooglePlex),
-                Marker(
-                  markerId: MarkerId("_destinationLocation"),
-                  icon: BitmapDescriptor.defaultMarker, 
-                  position: _pApplePark)
-              },
-              polylines: Set<Polyline>.of(polylines.values),
+                onChanged: (value) {
+                  // Implement your search filtering logic here
+                },
+              ),
             ),
+          ),
+        // Custom Compass placed above the default location button
+          Positioned(
+            bottom: 80, // Adjust based on where the location button is
+            right: 16,
+            child: Transform.rotate(
+              angle: (_mapBearing * (3.14159265 / 180) * -1),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white70,
+                  shape: BoxShape.circle,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.navigation,
+                  size: 24,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
-  }
-
-  Future<void> _cameraToPosition(LatLng pos) async {
-    final GoogleMapController controller = await _mapController.future;
-    CameraPosition _newCameraPosition = CameraPosition(
-      target: pos, 
-      zoom: 13,
-    );
-    await controller.animateCamera(
-      CameraUpdate.newCameraPosition(_newCameraPosition),
-    );
-  }
-  Future<void> getLocationUpdates() async {
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
-
-    serviceEnabled = await _locationController.serviceEnabled();
-    if (serviceEnabled){
-      serviceEnabled = await _locationController.requestService();
-    } else {
-      return;
-    }
-
-    permissionGranted = await _locationController.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await _locationController.requestPermission();
-      if (permissionGranted != PermissionStatus.granted){
-        return;
-      }
-    }
-
-    _locationController.onLocationChanged
-        .listen((LocationData currentLocation){
-      if (currentLocation.latitude != null && 
-          currentLocation.longitude != null){
-        setState((){
-          _currentP = 
-              LatLng(currentLocation.latitude!, currentLocation.longitude!);
-          _cameraToPosition(_currentP!);
-        });
-      }
-    });
-  }
-
-
-  Future<List<LatLng>> getPolylinePoints() async {
-    List<LatLng> polylineCoordinates = [];
-    PolylinePoints polylinePoints = PolylinePoints();
-    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
-      GOOGLE_MAPS_API_KEY,
-      PointLatLng(_pGooglePlex.latitude, _pGooglePlex.longitude),
-      PointLatLng(_pApplePark.latitude, _pApplePark.longitude),
-    );
-
-    if(result.points.isNotEmpty) {
-      result.points.forEach((PointLatLng point) { 
-        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
-      });
-    } else {
-      print(result.errorMessage);
-    }
-    return polylineCoordinates;
-  }
-
-  void generatePolyLineFromPoints(List<LatLng> polylineCoordinates) async {
-    PolylineId id = PolylineId("poly");
-    Polyline polyline  = Polyline(
-        polylineId: id, 
-        color: Colors.black, 
-        points: polylineCoordinates, 
-        width: 8);
-    setState((){
-      polylines[id] = polyline;
-    });
   }
 }
-
-
