@@ -4,19 +4,21 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
 
 class MapPage extends StatefulWidget {
-  const MapPage({super.key});
+  const MapPage({Key? key}) : super(key: key);
 
   @override
   State<MapPage> createState() => _MapPageState();
 }
 
 class _MapPageState extends State<MapPage> {
-  late GoogleMapController mapController;
-  final Set<Marker> _markers = {};
+  late GoogleMapController _mapController;
+  Set<Marker> _markers = {};
+  double _mapBearing = 0.0;
 
+  // Centered on the continental US
   final CameraPosition _initialPosition = const CameraPosition(
-    target: LatLng(37.7749, -122.4194), // San Francisco
-    zoom: 12,
+    target: LatLng(39.8283, -98.5795),
+    zoom: 4,
   );
 
   @override
@@ -25,8 +27,18 @@ class _MapPageState extends State<MapPage> {
     _loadCSV();
   }
 
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+  }
+
+  void _onCameraMove(CameraPosition position) {
+    setState(() {
+      _mapBearing = position.bearing;
+    });
+  }
+
   Future<void> _loadCSV() async {
-    final data = await rootBundle.loadString('assets/data/ebt_locations.csv');
+    final data = await rootBundle.loadString('assets/retailers.csv');
     final List<List<dynamic>> csvTable = const CsvToListConverter().convert(data);
 
     for (int i = 1; i < csvTable.length; i++) {
@@ -50,12 +62,13 @@ class _MapPageState extends State<MapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('EBT Locator Map')),
+      appBar: AppBar(
+        title: const Text('EBT Locator Map'),
+      ),
       body: GoogleMap(
         initialCameraPosition: _initialPosition,
-        onMapCreated: (controller) {
-          mapController = controller;
-        },
+        onMapCreated: _onMapCreated,
+        onCameraMove: _onCameraMove,
         markers: _markers,
         myLocationEnabled: true,
         zoomControlsEnabled: true,
