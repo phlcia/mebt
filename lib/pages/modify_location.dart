@@ -42,10 +42,10 @@ class _ModifyLocationState extends State<ModifyLocation> {
         title: const Text('GeoLocator'),
         centerTitle: true,
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: Colors.blue))
-      ),
+      // body: Container(
+      //   decoration: BoxDecoration(
+      //     gradient: LinearGradient(colors: Colors.blue))
+      // ),
     );
   }
 }
