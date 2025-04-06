@@ -50,9 +50,12 @@ class _LoadingScreenState extends State<LoadingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Display a splash image as the loading screen
+      backgroundColor: Colors.white, // Set the background color here
       body: Center(
-        child: Image.asset('assets/splash.jpg'),
+        child: Image.asset(
+          'assets/logo.jpg',
+          width: MediaQuery.of(context).size.width / 2,
+        ),
       ),
     );
   }
