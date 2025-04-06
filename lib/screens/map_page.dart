@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MapPage extends StatefulWidget {
+  const MapPage({super.key});
+
   @override
   _MapPageState createState() => _MapPageState();
 }
@@ -10,7 +12,7 @@ class MapPage extends StatefulWidget {
 class _MapPageState extends State<MapPage> {
   late GoogleMapController mapController;
 
-  CameraPosition _initialPosition = CameraPosition(
+  final CameraPosition _initialPosition = CameraPosition(
     target: LatLng(37.7749, -122.4194), // Example: San Francisco
     zoom: 12,
   );
