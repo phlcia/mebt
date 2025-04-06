@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:csv/csv.dart';
-import 'dart:math' show pi;
 import 'package:geolocator/geolocator.dart';
+import 'dart:math' as math;
 
 class MapPage extends StatefulWidget {
   const MapPage({Key? key}) : super(key: key);
@@ -13,62 +11,107 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
-  GoogleMapController? _mapController;
+  late GoogleMapController _mapController;
   Set<Marker> _markers = {};
-  Set<Marker> _filteredMarkers = {};
   double _mapBearing = 0.0;
-  bool _isLoading = true;
-  String _searchText = '';
-  List<Map<String, dynamic>> _storeData = [];
+  Position? _userPosition;
+  bool _loadingLocation = false;
   
-  // Default to center of US, will be updated with user location
-  CameraPosition _initialPosition = const CameraPosition(
-    target: LatLng(39.8283, -98.5795),
-    zoom: 4,
+  // San Diego centered position
+  final CameraPosition _initialPosition = const CameraPosition(
+    target: LatLng(32.7157, -117.1611), // San Diego coordinates
+    zoom: 12,
   );
+
+  // Hardcoded EBT locations in San Diego
+  final List<Map<String, dynamic>> _sanDiegoLocations = [
+    {
+      'name': 'Northgate Market',
+      'latitude': 32.7160,
+      'longitude': -117.1298,
+      'type': 'Grocery Store'
+    },
+    {
+      'name': 'Food4Less',
+      'latitude': 32.7077,
+      'longitude': -117.1532,
+      'type': 'Grocery Store'
+    },
+    {
+      'name': 'Walmart Neighborhood Market',
+      'latitude': 32.7391,
+      'longitude': -117.0837,
+      'type': 'Grocery Store'
+    },
+    {
+      'name': 'Family Dollar',
+      'latitude': 32.7020,
+      'longitude': -117.1441,
+      'type': 'Convenience Store'
+    },
+    {
+      'name': 'Vons',
+      'latitude': 32.7492,
+      'longitude': -117.1303,
+      'type': 'Grocery Store'
+    },
+    {
+      'name': 'Target',
+      'latitude': 32.7675,
+      'longitude': -117.1558,
+      'type': 'Superstore'
+    },
+    {
+      'name': 'Farmers Market',
+      'latitude': 32.7316,
+      'longitude': -117.1517,
+      'type': 'Fresh Produce'
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
-    _determinePosition().then((position) {
-      if (position != null) {
-        setState(() {
-          _initialPosition = CameraPosition(
-            target: LatLng(position.latitude, position.longitude),
-            zoom: 12,
-          );
-        });
-      }
-      _loadCSV();
-    });
+    _addSanDiegoMarkers();
+    _getUserLocation();
   }
 
-  Future<Position?> _determinePosition() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return null;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return null;
-      }
+  void _addSanDiegoMarkers() {
+    Set<Marker> tempMarkers = {};
+    
+    for (int i = 0; i < _sanDiegoLocations.length; i++) {
+      final location = _sanDiegoLocations[i];
+      
+      tempMarkers.add(
+        Marker(
+          markerId: MarkerId('marker_$i'),
+          position: LatLng(
+            location['latitude'],
+            location['longitude'],
+          ),
+          // Using the default marker with green color for EBT locations
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          infoWindow: InfoWindow(
+            title: location['name'],
+            snippet: location['type'],
+          ),
+          onTap: () {
+            _showLocationInfo(
+              location['name'],
+              location['type'],
+              LatLng(
+                location['latitude'],
+                location['longitude'],
+              ),
+            );
+          },
+        ),
+      );
     }
     
-    if (permission == LocationPermission.deniedForever) {
-      return null;
-    }
-
-    try {
-      return await Geolocator.getCurrentPosition();
-    } catch (e) {
-      return null;
-    }
+    setState(() {
+      _markers = tempMarkers;
+    });
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -81,228 +124,332 @@ class _MapPageState extends State<MapPage> {
     });
   }
 
-  Future<void> _loadCSV() async {
-    try {
-      // Load the CSV file from assets
-      final data = await rootBundle.loadString('assets/retailers.csv');
-      final List<List<dynamic>> csvTable = const CsvToListConverter().convert(data);
-      
-      // Get header row
-      final headers = csvTable[0].map((header) => header.toString()).toList();
-      
-      // Use BitmapDescriptor for marker icon
-      final BitmapDescriptor customIcon = await BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(size: Size(48, 48)),
-        'assets/ebt_marker.png', // Create this asset or use default marker
-      ).catchError((error) {
-        return BitmapDescriptor.defaultMarker;
-      });
-
-      // Process data rows
-      for (int i = 1; i < csvTable.length; i++) {
-        final row = csvTable[i];
-        
-        // Create a map of the store data
-        Map<String, dynamic> storeInfo = {};
-        for (int j = 0; j < headers.length && j < row.length; j++) {
-          storeInfo[headers[j]] = row[j];
-        }
-        
-        final String name = row[0].toString();
-        final double? lat = double.tryParse(row[1].toString());
-        final double? lng = double.tryParse(row[2].toString());
-        
-        // Add to store data list
-        if (lat != null && lng != null) {
-          storeInfo['latitude'] = lat;
-          storeInfo['longitude'] = lng;
-          storeInfo['position'] = LatLng(lat, lng);
-          _storeData.add(storeInfo);
-          
-          // Create marker
-          _markers.add(
-            Marker(
-              markerId: MarkerId('marker_$i'),
-              position: LatLng(lat, lng),
-              infoWindow: InfoWindow(
-                title: name,
-                snippet: storeInfo.containsKey('address') ? storeInfo['address'].toString() : null,
-              ),
-              icon: customIcon,
-            ),
-          );
-        }
-      }
-      
-      setState(() {
-        _isLoading = false;
-        _filteredMarkers = _markers;
-      });
-    } catch (e) {
-      print('Error loading CSV: $e');
-      setState(() {
-        _isLoading = false;
-      });
-      
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading store data: $e')),
-      );
-    }
-  }
-  
-  void _filterMarkers(String query) {
+  // Get user's current location
+  Future<void> _getUserLocation() async {
     setState(() {
-      _searchText = query;
-      if (query.isEmpty) {
-        _filteredMarkers = _markers;
-      } else {
-        _filteredMarkers = _markers.where((marker) {
-          final String title = marker.infoWindow.title ?? '';
-          final String snippet = marker.infoWindow.snippet ?? '';
-          return title.toLowerCase().contains(query.toLowerCase()) ||
-              snippet.toLowerCase().contains(query.toLowerCase());
-        }).toSet();
-      }
+      _loadingLocation = true;
     });
-  }
-  
-  void _centerOnUserLocation() async {
-    final Position? position = await _determinePosition();
-    if (position != null && _mapController != null) {
-      _mapController!.animateCamera(
+    
+    try {
+      // Check location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          // Permission denied
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are denied')),
+          );
+          setState(() {
+            _loadingLocation = false;
+          });
+          return;
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        // Permissions are permanently denied
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location permissions are permanently denied, we cannot request permissions.'),
+          ),
+        );
+        setState(() {
+          _loadingLocation = false;
+        });
+        return;
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      
+      setState(() {
+        _userPosition = position;
+        _loadingLocation = false;
+      });
+      
+      // Move camera to user location with appropriate zoom
+      _mapController.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(
             target: LatLng(position.latitude, position.longitude),
-            zoom: 15,
+            zoom: 13.0,
           ),
         ),
       );
+      
+    } catch (e) {
+      setState(() {
+        _loadingLocation = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not get location: $e')),
+      );
     }
+  }
+
+  // Calculate distance between two coordinates in meters
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371000; // Earth radius in meters
+    
+    // Convert degrees to radians
+    double lat1Rad = lat1 * (math.pi / 180);
+    double lon1Rad = lon1 * (math.pi / 180);
+    double lat2Rad = lat2 * (math.pi / 180);
+    double lon2Rad = lon2 * (math.pi / 180);
+    
+    // Haversine formula
+    double dLat = lat2Rad - lat1Rad;
+    double dLon = lon2Rad - lon1Rad;
+    double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1Rad) * math.cos(lat2Rad) *
+        math.sin(dLon / 2) * math.sin(dLon / 2);
+    double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    double distance = earthRadius * c;
+    
+    return distance;
+  }
+
+  // Calculate estimated travel times
+  Map<String, String> _calculateTravelTimes(double distanceInMeters) {
+    // Average walking speed: 5 km/h = 1.4 m/s
+    // Average driving speed: 50 km/h = 13.9 m/s (urban areas)
+    
+    double walkingTimeInSeconds = distanceInMeters / 1.4;
+    double drivingTimeInSeconds = distanceInMeters / 13.9;
+    
+    String walkingTime = _formatTime(walkingTimeInSeconds);
+    String drivingTime = _formatTime(drivingTimeInSeconds);
+    
+    return {
+      'walking': walkingTime,
+      'driving': drivingTime,
+    };
+  }
+
+  // Format time in seconds to a readable format
+  String _formatTime(double seconds) {
+    if (seconds < 60) {
+      return 'Less than 1 minute';
+    } else if (seconds < 3600) {
+      int minutes = (seconds / 60).round();
+      return '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
+    } else {
+      int hours = (seconds / 3600).floor();
+      int minutes = ((seconds % 3600) / 60).round();
+      return '$hours ${hours == 1 ? 'hour' : 'hours'} $minutes ${minutes == 1 ? 'minute' : 'minutes'}';
+    }
+  }
+
+  // Show bottom sheet with distance and travel time info
+  void _showLocationInfo(String name, String type, LatLng position) {
+    if (_userPosition == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Waiting for your location...')),
+      );
+      _getUserLocation();
+      return;
+    }
+    
+    double distance = _calculateDistance(
+      _userPosition!.latitude,
+      _userPosition!.longitude,
+      position.latitude,
+      position.longitude,
+    );
+    
+    Map<String, String> travelTimes = _calculateTravelTimes(distance);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // EBT Icon
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'EBT',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          type,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+              // Distance info
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.place, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Distance: ${(distance / 1000).toStringAsFixed(2)} km',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Estimated Travel Time:',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              // Walking time
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green[200]!),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.directions_walk, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Walking: ${travelTimes['walking']}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Driving time
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.directions_car, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Driving: ${travelTimes['driving']}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Action buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        // Just close for now - in a real app you'd launch directions
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Getting directions...')),
+                        );
+                      },
+                      icon: const Icon(Icons.directions),
+                      label: const Text('Get Directions'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                      label: const Text('Close'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('EBT Store Locator'),
-        backgroundColor: Colors.green,
-        elevation: 0,
+        title: const Text('EBT Locator Map'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.my_location),
+            onPressed: _getUserLocation,
+          ),
+        ],
       ),
       body: Stack(
         children: [
-          // Loading indicator
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
-            ),
-          
-          // Google Map widget displaying markers
           GoogleMap(
             initialCameraPosition: _initialPosition,
             onMapCreated: _onMapCreated,
             onCameraMove: _onCameraMove,
-            markers: _filteredMarkers,
+            markers: _markers,
             myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
+            zoomControlsEnabled: true,
             mapType: MapType.normal,
           ),
-
-          // Sticky, rounded search bar at the top
-          Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 6,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: TextField(
-                decoration: const InputDecoration(
-                  hintText: 'Search for EBT stores',
-                  border: InputBorder.none,
-                  icon: Icon(Icons.search),
-                ),
-                onChanged: _filterMarkers,
-              ),
+          if (_loadingLocation)
+            const Center(
+              child: CircularProgressIndicator(),
             ),
-          ),
-
-          // Results counter
-          if (_searchText.isNotEmpty)
-            Positioned(
-              top: 70,
-              left: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  '${_filteredMarkers.length} results found',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-
-          // Custom compass at the bottom
-          Positioned(
-            bottom: 80,
-            right: 16,
-            child: Transform.rotate(
-              angle: -_mapBearing * (pi / 180),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.navigation,
-                  size: 24,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-          ),
-          
-          // My location button
-          Positioned(
-            bottom: 140,
-            right: 16,
-            child: FloatingActionButton(
-              mini: true,
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black87,
-              onPressed: _centerOnUserLocation,
-              child: const Icon(Icons.my_location),
-            ),
-          ),
         ],
       ),
     );
