@@ -1,54 +1,65 @@
-// lib/screens/map_page.dart
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:csv/csv.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
 
   @override
-  _MapPageState createState() => _MapPageState();
+  State<MapPage> createState() => _MapPageState();
 }
 
 class _MapPageState extends State<MapPage> {
   late GoogleMapController mapController;
+  final Set<Marker> _markers = {};
 
-  final CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(37.7749, -122.4194), // Example: San Francisco
+  final CameraPosition _initialPosition = const CameraPosition(
+    target: LatLng(37.7749, -122.4194), // San Francisco
     zoom: 12,
   );
 
   @override
+  void initState() {
+    super.initState();
+    _loadCSV();
+  }
+
+  Future<void> _loadCSV() async {
+    final data = await rootBundle.loadString('assets/data/ebt_locations.csv');
+    final List<List<dynamic>> csvTable = const CsvToListConverter().convert(data);
+
+    for (int i = 1; i < csvTable.length; i++) {
+      final row = csvTable[i];
+      final String name = row[0].toString();
+      final double? lat = double.tryParse(row[1].toString());
+      final double? lng = double.tryParse(row[2].toString());
+
+      if (lat != null && lng != null) {
+        _markers.add(Marker(
+          markerId: MarkerId('marker_$i'),
+          position: LatLng(lat, lng),
+          infoWindow: InfoWindow(title: name),
+        ));
+      }
+    }
+
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('EBT Locator Map')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              decoration: InputDecoration(
-                labelText: 'Search for a location',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.search),
-              ),
-              onSubmitted: (query) {
-                // Implement location search logic here
-                print('Searching for $query');
-              },
-            ),
-          ),
-          Expanded(
-            child: GoogleMap(
-              initialCameraPosition: _initialPosition,
-              onMapCreated: (controller) {
-                mapController = controller;
-              },
-              myLocationEnabled: true,
-              zoomControlsEnabled: true,
-              mapType: MapType.normal,
-            ),
-          ),
-        ],
+      appBar: AppBar(title: const Text('EBT Locator Map')),
+      body: GoogleMap(
+        initialCameraPosition: _initialPosition,
+        onMapCreated: (controller) {
+          mapController = controller;
+        },
+        markers: _markers,
+        myLocationEnabled: true,
+        zoomControlsEnabled: true,
+        mapType: MapType.normal,
       ),
     );
   }

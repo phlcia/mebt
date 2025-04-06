@@ -1,23 +1,28 @@
-// lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
-import 'map_page.dart'; // Import the map page to navigate to it
+import 'package:shared_preferences/shared_preferences.dart';
+import 'map_page.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
+  Future<void> _handleLogin(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', true);
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const MapPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('EBT Locator Login')),
+      appBar: AppBar(title: const Text('User Login')),
       body: Center(
         child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => MapPage()),
-            );
-          },
-          child: Text('Login'),
+          onPressed: () => _handleLogin(context),
+          child: const Text('Login'),
         ),
       ),
     );
